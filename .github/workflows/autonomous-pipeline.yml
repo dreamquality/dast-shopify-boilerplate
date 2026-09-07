@@ -80,7 +80,7 @@ jobs:
           node-version: 20
 
       - name: Download Allure artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.3
         with:
           pattern: allure-results-*
           path: merged-allure
@@ -113,7 +113,7 @@ jobs:
           node-version: 20
 
       - name: Download result shards
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.3
         with:
           pattern: results-*
           path: merged-results
