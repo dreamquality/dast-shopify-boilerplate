@@ -1,0 +1,126 @@
+name: Autonomous QA Security Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'copilot/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/3, 2/3, 3/3]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Restore AI Cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ai-cache
+          key: ai-cache-${{ github.ref_name }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start ZAP proxy
+        run: docker compose up -d security-proxy
+
+      - name: Run tests (sharded)
+        run: docker compose run --rm qa-runner npx playwright test --shard=${{ matrix.shard }}
+        env:
+          MERCHANT_URL: ${{ secrets.MERCHANT_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          HTTP_PROXY: http://security-proxy:8080
+          HTTPS_PROXY: http://security-proxy:8080
+
+      - name: Save AI Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ai-cache
+          key: ai-cache-${{ github.ref_name }}
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.shard }}
+          path: allure-results
+
+      - name: Upload Playwright results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.shard }}
+          path: results.json
+
+  report:
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download Allure artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: merged-allure
+          merge-multiple: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Allure report
+        run: npx allure generate merged-allure --clean -o allure-report
+
+      - name: Upload report to Cloudflare R2
+        run: |
+          echo "Uploading to Cloudflare R2 bucket gent-clips-storage"
+          npx wrangler r2 object put gent-clips-storage/autonomous-report-${{ github.run_id }}.zip --file <(cd allure-report && zip -r - .)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  alerts:
+    if: failure()
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download result shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: merged-results
+          merge-multiple: true
+
+      - name: Merge result JSON files
+        run: |
+          node -e "const fs=require('fs');const path=require('path');const files=fs.readdirSync('merged-results').filter(f=>f.endsWith('.json'));const merged={suites:[]};for(const f of files){const d=JSON.parse(fs.readFileSync(path.join('merged-results',f),'utf8'));merged.suites.push(...(d.suites||[]));}fs.writeFileSync('results.json',JSON.stringify(merged,null,2));"
+
+      - name: Group alerts into master tickets
+        run: node scripts/smart-alert-grouping.js results.json
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
