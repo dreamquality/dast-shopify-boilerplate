@@ -9,9 +9,19 @@ printf "\n"
 read -r -s -p "Enter R2_ACCESS_KEY: " R2_ACCESS_KEY
 printf "\n"
 
-gh secret set OPENAI_API_KEY --body "$OPENAI_API_KEY"
-gh secret set MERCHANT_URL --body "$MERCHANT_URL"
-gh secret set LINEAR_API_KEY --body "$LINEAR_API_KEY"
-gh secret set R2_ACCESS_KEY --body "$R2_ACCESS_KEY"
+set_secret() {
+  local name="$1"
+  local value="$2"
+  local body_file
+  body_file="$(mktemp)"
+  trap 'rm -f "$body_file"' RETURN
+  printf '%s' "$value" > "$body_file"
+  gh secret set "$name" --body-file "$body_file"
+}
+
+set_secret OPENAI_API_KEY "$OPENAI_API_KEY"
+set_secret MERCHANT_URL "$MERCHANT_URL"
+set_secret LINEAR_API_KEY "$LINEAR_API_KEY"
+set_secret R2_ACCESS_KEY "$R2_ACCESS_KEY"
 
 echo "Secrets have been configured."

@@ -17,6 +17,16 @@ function getErrorSignature(result) {
   return firstError?.message || firstError?.stack || result?.error?.message || 'Unknown failure';
 }
 
+function getMerchantUrl(result) {
+  const attachment = result?.attachments?.find((a) => a.name === 'merchant_url');
+
+  if (attachment?.body) {
+    return Buffer.from(attachment.body, 'base64').toString('utf-8');
+  }
+
+  return process.env.MERCHANT_URL || 'unknown_merchant';
+}
+
 function visitSuite(suite) {
   for (const spec of suite.specs ?? []) {
     for (const test of spec.tests ?? []) {
@@ -26,10 +36,7 @@ function visitSuite(suite) {
         }
 
         const signature = getErrorSignature(result);
-        const merchantUrl =
-          result?.attachments?.find((a) => a.name === 'merchant_url')?.body ||
-          process.env.MERCHANT_URL ||
-          'unknown_merchant';
+        const merchantUrl = getMerchantUrl(result);
 
         if (!grouped.has(signature)) {
           grouped.set(signature, {

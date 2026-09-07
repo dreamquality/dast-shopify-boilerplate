@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test, chromium } from '@playwright/test';
 import { playAudit } from 'playwright-lighthouse';
 import YAML from 'yaml';
 import botConfig from '../bot.config';
@@ -28,12 +28,26 @@ function loadAiCache(): AiCache {
     return {};
   }
 
-  return JSON.parse(fs.readFileSync(cachePath, 'utf-8')) as AiCache;
+  try {
+    return JSON.parse(fs.readFileSync(cachePath, 'utf-8')) as AiCache;
+  } catch {
+    return {};
+  }
 }
 
 function saveAiCache(cache: AiCache): void {
   fs.mkdirSync(path.dirname(cachePath), { recursive: true });
-  fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2), 'utf-8');
+  const tempPath = `${cachePath}.${process.pid}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(cache, null, 2), 'utf-8');
+  fs.renameSync(tempPath, cachePath);
+}
+
+function interpolateEnv(value?: string): string {
+  if (!value) {
+    return '';
+  }
+
+  return value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => process.env[name] ?? '');
 }
 
 async function resolveAndRunAiAction(page: any, prompt: string): Promise<void> {
@@ -78,10 +92,14 @@ for (const scenarioFile of scenarioFiles) {
       fs.readFileSync(path.join(scenarioDir, scenarioFile), 'utf8')
     ) as ScenarioFile;
 
-    const merchantUrl = (parsed.merchant_url || process.env.MERCHANT_URL || '').replace(/\/$/, '');
+    const merchantUrl = interpolateEnv(parsed.merchant_url || process.env.MERCHANT_URL).replace(/\/$/, '');
     if (!merchantUrl) {
       throw new Error('MERCHANT_URL is required in scenario file or environment.');
     }
+    await testInfo.attach('merchant_url', {
+      body: merchantUrl,
+      contentType: 'text/plain'
+    });
 
     for (const step of parsed.steps || []) {
       switch (step.action) {
@@ -103,12 +121,26 @@ for (const scenarioFile of scenarioFiles) {
           break;
         }
         case 'audit-performance': {
-          const testPort = 9222 + testInfo.parallelIndex;
-          await playAudit({
-            page,
-            port: testPort,
-            thresholds: botConfig.lighthouseThresholds
+          const auditPort = 9222 + testInfo.parallelIndex;
+          const auditBrowser = await chromium.launch({
+            args: [`--remote-debugging-port=${auditPort}`],
+            proxy: process.env.HTTP_PROXY ? { server: process.env.HTTP_PROXY } : undefined
           });
+
+          try {
+            const storageState = await page.context().storageState();
+            const auditContext = await auditBrowser.newContext({ storageState });
+            const auditPage = await auditContext.newPage();
+            await auditPage.goto(page.url());
+            await playAudit({
+              page: auditPage,
+              port: auditPort,
+              thresholds: botConfig.lighthouseThresholds
+            });
+            await auditContext.close();
+          } finally {
+            await auditBrowser.close();
+          }
           break;
         }
         default:
