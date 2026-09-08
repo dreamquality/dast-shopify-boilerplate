@@ -1,0 +1,10 @@
+name: default-checkout
+merchant_url: ${MERCHANT_URL}
+steps:
+  - action: navigate
+    target: "/"
+  - action: audit-performance
+  - action: visual-check
+    name: "homepage-layout"
+  - action: ai-action
+    prompt: "Click add to basket"

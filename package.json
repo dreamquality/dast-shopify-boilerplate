@@ -1,0 +1,28 @@
+{
+  "name": "dast-shopify-boilerplate",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "zap:up": "docker compose up -d security-proxy",
+    "zap:down": "docker compose down",
+    "report:generate": "allure generate allure-results --clean -o allure-report",
+    "alerts:group": "node scripts/smart-alert-grouping.js"
+  },
+  "dependencies": {
+    "@midscene/playwright": "npm:@midscene/web@^1.12.4",
+    "@playwright/test": "^1.44.0",
+    "dotenv": "^16.4.5",
+    "langfuse": "^3.23.0",
+    "lighthouse": "^12.1.0",
+    "playwright": "^1.44.0",
+    "playwright-lighthouse": "^4.0.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "allure-commandline": "^2.30.0",
+    "allure-playwright": "^3.0.0",
+    "typescript": "^5.5.4"
+  }
+}
