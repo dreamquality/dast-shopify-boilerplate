@@ -27,7 +27,7 @@ jobs:
           cache: npm
 
       - name: Restore AI Cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .ai-cache
           key: ai-cache-${{ github.ref_name }}-${{ github.run_id }}
@@ -50,7 +50,7 @@ jobs:
 
       - name: Save AI Cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .ai-cache
           key: ai-cache-${{ github.ref_name }}-${{ github.run_id }}
