@@ -7,7 +7,15 @@ if (!fs.existsSync(inputPath)) {
   process.exit(1);
 }
 
-const data = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+let data;
+
+try {
+  data = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`invalid results file: ${inputPath} (${message})`);
+  process.exit(1);
+}
 const grouped = new Map();
 
 const suites = data.suites ?? [];

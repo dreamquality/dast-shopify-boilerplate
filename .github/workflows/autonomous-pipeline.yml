@@ -30,7 +30,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .ai-cache
-          key: ai-cache-${{ github.ref_name }}
+          key: ai-cache-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            ai-cache-${{ github.ref_name }}-
 
       - name: Install dependencies
         run: npm ci
@@ -51,7 +53,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .ai-cache
-          key: ai-cache-${{ github.ref_name }}
+          key: ai-cache-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Upload Allure results
         if: always()
@@ -117,11 +119,10 @@ jobs:
         with:
           pattern: results-*
           path: merged-results
-          merge-multiple: true
 
       - name: Merge result JSON files
         run: |
-          node -e "const fs=require('fs');const path=require('path');const files=fs.readdirSync('merged-results').filter(f=>f.endsWith('.json'));const merged={suites:[]};for(const f of files){const d=JSON.parse(fs.readFileSync(path.join('merged-results',f),'utf8'));merged.suites.push(...(d.suites||[]));}fs.writeFileSync('results.json',JSON.stringify(merged,null,2));"
+          node -e "const fs=require('fs');const path=require('path');const files=[];const walk=(dir)=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name);if(entry.isDirectory())walk(full);else if(entry.isFile()&&entry.name==='results.json')files.push(full);}};walk('merged-results');const merged={suites:[]};for(const file of files){const data=JSON.parse(fs.readFileSync(file,'utf8'));merged.suites.push(...(data.suites||[]));}fs.writeFileSync('results.json',JSON.stringify(merged,null,2));"
 
       - name: Group alerts into master tickets
         run: node scripts/smart-alert-grouping.js results.json
