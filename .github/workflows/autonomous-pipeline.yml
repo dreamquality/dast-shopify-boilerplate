@@ -122,7 +122,7 @@ jobs:
 
       - name: Merge result JSON files
         run: |
-          node -e "const fs=require('fs');const path=require('path');const files=[];const walk=(dir)=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name);if(entry.isDirectory())walk(full);else if(entry.isFile()&&entry.name==='results.json')files.push(full);}};walk('merged-results');const merged={suites:[]};for(const file of files){const data=JSON.parse(fs.readFileSync(file,'utf8'));merged.suites.push(...(data.suites||[]));}fs.writeFileSync('results.json',JSON.stringify(merged,null,2));"
+          node -e "const fs=require('fs');const path=require('path');const files=[];const dir='merged-results';const walk=(currentDir)=>{for(const entry of fs.readdirSync(currentDir,{withFileTypes:true})){const full=path.join(currentDir,entry.name);if(entry.isDirectory())walk(full);else if(entry.isFile()&&entry.name==='results.json')files.push(full);}};if(fs.existsSync(dir))walk(dir);const merged={suites:[]};for(const file of files){const data=JSON.parse(fs.readFileSync(file,'utf8'));merged.suites.push(...(data.suites||[]));}fs.writeFileSync('results.json',JSON.stringify(merged,null,2));"
 
       - name: Group alerts into master tickets
         run: node scripts/smart-alert-grouping.js results.json
