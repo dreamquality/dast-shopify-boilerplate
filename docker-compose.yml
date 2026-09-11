@@ -1,6 +1,6 @@
 services:
   security-proxy:
-    image: owasp/zap2docker-stable
+    image: ghcr.io/zaproxy/zaproxy:stable
     command: ["zap.sh", "-daemon", "-host", "0.0.0.0", "-port", "8080", "-config", "api.disablekey=true"]
     ports:
       - "127.0.0.1:8080:8080"
@@ -13,6 +13,8 @@ services:
     environment:
       HTTP_PROXY: http://security-proxy:8080
       HTTPS_PROXY: http://security-proxy:8080
+      MERCHANT_URL: ${MERCHANT_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - ./allure-results:/app/allure-results
       - ./.ai-cache:/app/.ai-cache
