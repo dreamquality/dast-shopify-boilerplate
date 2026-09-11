@@ -13,6 +13,8 @@ services:
     environment:
       HTTP_PROXY: http://security-proxy:8080
       HTTPS_PROXY: http://security-proxy:8080
+      MERCHANT_URL: ${MERCHANT_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - ./allure-results:/app/allure-results
       - ./.ai-cache:/app/.ai-cache
