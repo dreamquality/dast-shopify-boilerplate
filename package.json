@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "allure-commandline": "^2.30.0",
-    "allure-playwright": "^3.0.0",
+    "allure-playwright": "^3.12.1",
     "typescript": "^5.5.4"
   }
 }
